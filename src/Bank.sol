@@ -8,15 +8,14 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract Bank is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant USER_COUNT = 10;
+    // use guard node to simplify boundary case handling
+    address constant GUARD = address(1);
 
     address public admin;
     mapping(address => uint256) public balances;
     // store the next depositor
     mapping(address => address) private _nextDepositors;
     uint256 public listSize;
-
-    // use guard node to simplify boundary case handling
-    address constant GUARD = address(1);
 
     error DepositTooLow();
     error OnlyAdminCanWithdraw();
