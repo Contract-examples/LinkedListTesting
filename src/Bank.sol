@@ -48,7 +48,7 @@ contract Bank is Ownable, ReentrancyGuard, Pausable {
         updateTopDepositors(msg.sender);
     }
 
-    // Update top 3 depositors
+    // Update top depositors
     function updateTopDepositors(address depositor) private {
         uint256 depositAmount = balances[depositor];
         uint256 index = USER_COUNT;
