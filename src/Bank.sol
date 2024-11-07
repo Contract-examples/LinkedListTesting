@@ -11,96 +11,108 @@ contract Bank is Ownable, ReentrancyGuard, Pausable {
 
     address public admin;
     mapping(address => uint256) public balances;
-    address[USER_COUNT] public topDepositors;
+    // store the next depositor
+    mapping(address => address) private _nextDepositors;
+    uint256 public listSize;
 
-    // Custom errors
+    // use guard node to simplify boundary case handling
+    address constant GUARD = address(1);
+
     error DepositTooLow();
     error OnlyAdminCanWithdraw();
-    error WithdrawalFailed();
 
     constructor() Ownable(msg.sender) {
         admin = msg.sender;
+        // initialize guard node
+        _nextDepositors[GUARD] = GUARD;
     }
 
-    // Receive ETH
     receive() external payable {
-        // Call deposit function
         deposit();
     }
 
-    // Pause function
     function pause() external onlyOwner {
         _pause();
     }
 
-    // Unpause function
     function unpause() external onlyOwner {
         _unpause();
     }
 
-    // Deposit function
     function deposit() public payable whenNotPaused nonReentrant {
-        // Revert if deposit amount is 0
-        if (msg.value == 0) {
-            revert DepositTooLow();
+        if (msg.value == 0) revert DepositTooLow();
+
+        address depositor = msg.sender;
+        uint256 newBalance = balances[depositor] + msg.value;
+
+        if (_nextDepositors[depositor] == address(0)) {
+            // new depositor, find the suitable insertion position
+            address candidate = GUARD;
+            while (_nextDepositors[candidate] != GUARD && balances[_nextDepositors[candidate]] >= newBalance) {
+                candidate = _nextDepositors[candidate];
+            }
+
+            balances[depositor] = newBalance;
+            _nextDepositors[depositor] = _nextDepositors[candidate];
+            _nextDepositors[candidate] = depositor;
+            listSize++;
+        } else {
+            // existing depositor, update balance and reorder
+            address oldCandidate = _findPrevDepositor(depositor);
+            _nextDepositors[oldCandidate] = _nextDepositors[depositor];
+
+            // find the new insertion position
+            address newCandidate = GUARD;
+            while (_nextDepositors[newCandidate] != GUARD && balances[_nextDepositors[newCandidate]] >= newBalance) {
+                newCandidate = _nextDepositors[newCandidate];
+            }
+
+            balances[depositor] = newBalance;
+            _nextDepositors[depositor] = _nextDepositors[newCandidate];
+            _nextDepositors[newCandidate] = depositor;
         }
-        balances[msg.sender] += msg.value;
-        updateTopDepositors(msg.sender);
     }
 
-    // Update top depositors
-    function updateTopDepositors(address depositor) private {
-        uint256 depositAmount = balances[depositor];
-        uint256 index = USER_COUNT;
-
-        for (uint256 i = 0; i < USER_COUNT; i++) {
-            if (depositAmount > balances[topDepositors[i]]) {
-                index = i;
-                break;
-            }
+    function _findPrevDepositor(address depositor) private view returns (address) {
+        address current = GUARD;
+        while (_nextDepositors[current] != depositor) {
+            current = _nextDepositors[current];
         }
-
-        if (index < USER_COUNT) {
-            for (uint256 i = USER_COUNT - 1; i > index; i--) {
-                topDepositors[i] = topDepositors[i - 1];
-            }
-            topDepositors[index] = depositor;
-        }
+        return current;
     }
 
-    // Withdrawal function (only callable by admin)
     function withdraw(uint256 amount) external whenNotPaused nonReentrant {
-        // Revert if caller is not admin
-        if (msg.sender != admin) {
-            revert OnlyAdminCanWithdraw();
-        }
-        // If the requested amount is greater than the balance, set amount to the balance
+        if (msg.sender != admin) revert OnlyAdminCanWithdraw();
+
         uint256 balance = address(this).balance;
         amount = amount > balance ? balance : amount;
         if (amount != 0) {
-            // Transfer fixedly uses 2300 gas, which may not be enough in some cases
-            // payable(admin).transfer(amount);
             Address.sendValue(payable(admin), amount);
         }
     }
 
-    // Query contract balance
     function getBalance() public view returns (uint256) {
         return address(this).balance;
     }
 
-    // Query top depositors
     function getTopDepositors() public view returns (address[USER_COUNT] memory) {
-        return topDepositors;
+        address[USER_COUNT] memory result;
+        address current = _nextDepositors[GUARD];
+
+        unchecked {
+            for (uint256 i = 0; i < USER_COUNT && current != GUARD; ++i) {
+                result[i] = current;
+                current = _nextDepositors[current];
+            }
+        }
+
+        return result;
     }
 
-    // Function to get deposit amount for a specific depositor
     function getDepositAmount(address depositor) public view returns (uint256) {
         return balances[depositor];
     }
 
-    // Function to destroy the contract, only callable by owner
-    // although "selfdestruct" has been deprecated, it's still used here for compatibility with older contracts
     function destroy(address payable recipient) public onlyOwner {
         selfdestruct(recipient);
     }
