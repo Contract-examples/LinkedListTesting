@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract Bank is Ownable, ReentrancyGuard, Pausable {
-    uint256 public constant USER_COUNT = 3;
+    uint256 public constant USER_COUNT = 10;
 
     address public admin;
     mapping(address => uint256) public balances;
