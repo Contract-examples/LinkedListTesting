@@ -7,9 +7,11 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract Bank is Ownable, ReentrancyGuard, Pausable {
+    uint256 public constant USER_COUNT = 3;
+
     address public admin;
     mapping(address => uint256) public balances;
-    address[3] public topDepositors;
+    address[USER_COUNT] public topDepositors;
 
     // Custom errors
     error DepositTooLow();
@@ -49,17 +51,17 @@ contract Bank is Ownable, ReentrancyGuard, Pausable {
     // Update top 3 depositors
     function updateTopDepositors(address depositor) private {
         uint256 depositAmount = balances[depositor];
-        uint256 index = 3;
+        uint256 index = USER_COUNT;
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < USER_COUNT; i++) {
             if (depositAmount > balances[topDepositors[i]]) {
                 index = i;
                 break;
             }
         }
 
-        if (index < 3) {
-            for (uint256 i = 2; i > index; i--) {
+        if (index < USER_COUNT) {
+            for (uint256 i = USER_COUNT - 1; i > index; i--) {
                 topDepositors[i] = topDepositors[i - 1];
             }
             topDepositors[index] = depositor;
@@ -87,8 +89,8 @@ contract Bank is Ownable, ReentrancyGuard, Pausable {
         return address(this).balance;
     }
 
-    // Query top 3 depositors
-    function getTopDepositors() public view returns (address[3] memory) {
+    // Query top depositors
+    function getTopDepositors() public view returns (address[USER_COUNT] memory) {
         return topDepositors;
     }
 

@@ -6,6 +6,7 @@ import "forge-std/console2.sol";
 import "src/Bank.sol";
 
 contract BankTest is Test {
+    uint256 constant USER_COUNT = 3;
     Bank public bank;
 
     function setUp() public {
@@ -65,7 +66,7 @@ contract BankTest is Test {
         vm.prank(user3);
         bank.deposit{ value: 1.5 ether }();
 
-        address[3] memory topDepositors = bank.getTopDepositors();
+        address[USER_COUNT] memory topDepositors = bank.getTopDepositors();
         assertEq(topDepositors[0], user3);
         assertEq(topDepositors[1], user2);
         assertEq(topDepositors[2], user1);
